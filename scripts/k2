@@ -4164,8 +4164,9 @@ def merge_classification_output2(
     counts_array2 = None
     lca_cache = {}
     out_filename = tempfile.mktemp(
-        prefix="k2_job" + str(job_number) + "_"
+        prefix="k2_job_" + str(job_number) + "_"
     )
+
     with open(out_filename, "w") as out_file:
         for (left, right) in lines:
             (status1, seq_name1, taxid1, len1, counts1) =\
@@ -4234,6 +4235,11 @@ def merge_classification_output2(
         return (out_filename, None, None, None)
 
 
+def extract_job_number(filename):
+    job_no = re.search("k2_job_(\d+)_.*", filename).group(1)
+    return int(job_no)
+
+
 def merge_classification_output_parallel(
         pool, taxonomy_pathname, in_filename1, in_filename2,
         out_filename, use_names, args, save_seq_names, final):
@@ -4274,7 +4280,7 @@ def merge_classification_output_parallel(
                 call_counters[key] += value
 
     with open(out_filename, "w") as out_file:
-        for filename in sorted(filenames):
+        for filename in sorted(filenames, key=extract_job_number):
             with open(filename, "r") as in_file:
                 shutil.copyfileobj(in_file, out_file)
             os.remove(filename)
