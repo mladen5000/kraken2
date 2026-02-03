@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(/usr/bin/cargo build:*)",
+      "Bash(/Users/mladenrasic/.cargo/bin/cargo build:*)",
+      "Bash(/Users/mladenrasic/.cargo/bin/cargo test:*)",
+      "Bash(cargo check:*)"
+    ]
+  }
+}
