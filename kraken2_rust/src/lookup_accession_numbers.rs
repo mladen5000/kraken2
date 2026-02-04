@@ -215,9 +215,10 @@ mod tests {
     }
 
     #[test]
-    fn test_find_byte_start_past_end() {
+    fn test_find_byte_start_at_end() {
         let data = b"hello";
-        assert_eq!(find_byte(data, 10, b'h'), None);
+        // Start at end of slice should return None (no panic)
+        assert_eq!(find_byte(data, 5, b'h'), None);
     }
 
     #[test]

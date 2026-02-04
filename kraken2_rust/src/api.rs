@@ -262,4 +262,166 @@ mod tests {
         assert!(info.is_dna());
         assert_eq!(info.k, 35);
     }
+
+    #[test]
+    fn test_classification_result_clone() {
+        let result = ClassificationResult {
+            sequence_id: "test".to_string(),
+            taxon_id: 123,
+            confidence: 0.8,
+            num_kmers_matched: 20,
+            total_kmers: 25,
+        };
+        let cloned = result.clone();
+        assert_eq!(cloned.sequence_id, "test");
+        assert_eq!(cloned.taxon_id, 123);
+    }
+
+    #[test]
+    fn test_classification_result_debug() {
+        let result = ClassificationResult {
+            sequence_id: "debug_test".to_string(),
+            taxon_id: 999,
+            confidence: 0.5,
+            num_kmers_matched: 10,
+            total_kmers: 20,
+        };
+        let debug = format!("{:?}", result);
+        assert!(debug.contains("debug_test"));
+        assert!(debug.contains("999"));
+    }
+
+    #[test]
+    fn test_database_builder_with_id_map() {
+        let builder = DatabaseBuilder::new()
+            .with_id_map("seqid2taxid.map".to_string());
+        assert_eq!(builder.options().id_to_taxon_map_filename, "seqid2taxid.map");
+    }
+
+    #[test]
+    fn test_database_builder_with_taxonomy() {
+        let builder = DatabaseBuilder::new()
+            .with_taxonomy("/path/to/taxonomy".to_string());
+        assert_eq!(builder.options().ncbi_taxonomy_directory, "/path/to/taxonomy");
+    }
+
+    #[test]
+    fn test_database_builder_with_output() {
+        let builder = DatabaseBuilder::new()
+            .with_output("database.k2d".to_string());
+        assert_eq!(builder.options().hashtable_filename, "database.k2d");
+    }
+
+    #[test]
+    fn test_database_builder_options_mut() {
+        let mut builder = DatabaseBuilder::new();
+        builder.options_mut().k = 25;
+        assert_eq!(builder.options().k, 25);
+    }
+
+    #[test]
+    fn test_database_builder_default_trait() {
+        let builder = DatabaseBuilder::default();
+        assert_eq!(builder.options().k, 35);
+    }
+
+    #[test]
+    fn test_classifier_with_database() {
+        let classifier = Classifier::new()
+            .with_database("/path/to/db".to_string());
+        assert_eq!(classifier.options().index_filename, "/path/to/db");
+        assert_eq!(classifier.options().taxonomy_filename, "/path/to/db.taxonomy");
+        assert_eq!(classifier.options().options_filename, "/path/to/db.options");
+    }
+
+    #[test]
+    fn test_classifier_with_min_hit_groups() {
+        let classifier = Classifier::new()
+            .with_min_hit_groups(5);
+        assert_eq!(classifier.options().minimum_hit_groups, 5);
+    }
+
+    #[test]
+    fn test_classifier_with_report_file() {
+        let classifier = Classifier::new()
+            .with_report_file("report.txt".to_string());
+        assert_eq!(classifier.options().report_filename, "report.txt");
+    }
+
+    #[test]
+    fn test_classifier_options_mut() {
+        let mut classifier = Classifier::new();
+        classifier.options_mut().num_threads = 8;
+        assert_eq!(classifier.options().num_threads, 8);
+    }
+
+    #[test]
+    fn test_classifier_default_trait() {
+        let classifier = Classifier::default();
+        assert_eq!(classifier.options().confidence_threshold, 0.0);
+    }
+
+    #[test]
+    fn test_database_info_protein() {
+        let info = DatabaseInfo {
+            k: 15,
+            l: 12,
+            is_protein: true,
+            num_taxa: 500,
+            num_minimizers: 25000,
+        };
+        assert!(!info.is_dna());
+        assert!(info.is_protein);
+        assert_eq!(info.k, 15);
+        assert_eq!(info.l, 12);
+    }
+
+    #[test]
+    fn test_database_info_load() {
+        // This returns default values for now
+        let info = DatabaseInfo::load("/nonexistent/path").unwrap();
+        assert_eq!(info.k, 35);
+        assert_eq!(info.l, 31);
+        assert!(!info.is_protein);
+    }
+
+    #[test]
+    fn test_full_builder_chain() {
+        let builder = DatabaseBuilder::new()
+            .with_k(31)
+            .with_l(27)
+            .with_protein(false)
+            .with_threads(16)
+            .with_id_map("map.txt".to_string())
+            .with_taxonomy("/taxonomy".to_string())
+            .with_output("output.k2d".to_string());
+
+        let opts = builder.options();
+        assert_eq!(opts.k, 31);
+        assert_eq!(opts.l, 27);
+        assert!(!opts.input_is_protein);
+        assert_eq!(opts.num_threads, 16);
+        assert_eq!(opts.id_to_taxon_map_filename, "map.txt");
+        assert_eq!(opts.ncbi_taxonomy_directory, "/taxonomy");
+        assert_eq!(opts.hashtable_filename, "output.k2d");
+    }
+
+    #[test]
+    fn test_full_classifier_chain() {
+        let classifier = Classifier::new()
+            .with_database("/db/kraken2".to_string())
+            .with_confidence_threshold(0.7)
+            .with_min_hit_groups(3)
+            .with_quick_mode(true)
+            .with_mpa_format(false)
+            .with_report_file("classification_report.txt".to_string());
+
+        let opts = classifier.options();
+        assert_eq!(opts.index_filename, "/db/kraken2");
+        assert_eq!(opts.confidence_threshold, 0.7);
+        assert_eq!(opts.minimum_hit_groups, 3);
+        assert!(opts.quick_mode);
+        assert!(!opts.mpa_style_report);
+        assert_eq!(opts.report_filename, "classification_report.txt");
+    }
 }
