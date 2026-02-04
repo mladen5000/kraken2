@@ -146,11 +146,53 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_classification_result_clone() {
+        let result = ClassificationResult {
+            sequence_id: "seq1".to_string(),
+            classified: true,
+            taxid: 562,
+            kmers_matched: 30,
+            kmers_total: 35,
+        };
+        let cloned = result.clone();
+        assert_eq!(result.sequence_id, cloned.sequence_id);
+        assert_eq!(result.taxid, cloned.taxid);
+    }
+
+    #[test]
+    fn test_classification_result_debug() {
+        let result = ClassificationResult {
+            sequence_id: "test_seq".to_string(),
+            classified: true,
+            taxid: 123,
+            kmers_matched: 10,
+            kmers_total: 20,
+        };
+        let debug = format!("{:?}", result);
+        assert!(debug.contains("test_seq"));
+        assert!(debug.contains("123"));
+    }
+
+    #[test]
+    fn test_report_format_debug() {
+        let format = ReportFormat::Kraken;
+        let debug = format!("{:?}", format);
+        assert!(debug.contains("Kraken"));
+    }
+
+    #[test]
+    fn test_report_format_clone() {
+        let format = ReportFormat::Mpa;
+        let cloned = format;
+        assert!(matches!(cloned, ReportFormat::Mpa));
+    }
+
+    #[test]
     fn test_report_generator_kraken() {
         let result = ClassificationResult {
             sequence_id: "seq1".to_string(),
             classified: true,
-            taxid: 562, // E. coli
+            taxid: 562,
             kmers_matched: 30,
             kmers_total: 35,
         };
@@ -160,20 +202,182 @@ mod tests {
         gen.write_result(&mut output, &result).unwrap();
 
         let s = String::from_utf8(output).unwrap();
-        assert!(s.contains("C"));
+        assert!(s.starts_with("C\t"));
+        assert!(s.contains("seq1"));
+        assert!(s.contains("562"));
+        assert!(s.contains("30"));
+        assert!(s.contains("35"));
+    }
+
+    #[test]
+    fn test_report_generator_kraken_unclassified() {
+        let result = ClassificationResult {
+            sequence_id: "seq2".to_string(),
+            classified: false,
+            taxid: 0,
+            kmers_matched: 0,
+            kmers_total: 35,
+        };
+
+        let mut output = Vec::new();
+        let gen = ReportGenerator::new(ReportFormat::Kraken);
+        gen.write_result(&mut output, &result).unwrap();
+
+        let s = String::from_utf8(output).unwrap();
+        assert!(s.starts_with("U\t"));
+    }
+
+    #[test]
+    fn test_report_generator_kraken_confidence() {
+        let result = ClassificationResult {
+            sequence_id: "seq1".to_string(),
+            classified: true,
+            taxid: 562,
+            kmers_matched: 50,
+            kmers_total: 100,
+        };
+
+        let mut output = Vec::new();
+        let gen = ReportGenerator::new(ReportFormat::Kraken);
+        gen.write_result(&mut output, &result).unwrap();
+
+        let s = String::from_utf8(output).unwrap();
+        // 50/100 = 0.5
+        assert!(s.contains("0.500000"));
+    }
+
+    #[test]
+    fn test_report_generator_kraken_zero_kmers() {
+        let result = ClassificationResult {
+            sequence_id: "empty".to_string(),
+            classified: false,
+            taxid: 0,
+            kmers_matched: 0,
+            kmers_total: 0,
+        };
+
+        let mut output = Vec::new();
+        let gen = ReportGenerator::new(ReportFormat::Kraken);
+        gen.write_result(&mut output, &result).unwrap();
+
+        let s = String::from_utf8(output).unwrap();
+        // Should handle division by zero gracefully
+        assert!(s.contains("0.000000"));
+    }
+
+    #[test]
+    fn test_report_generator_mpa() {
+        let result = ClassificationResult {
+            sequence_id: "seq1".to_string(),
+            classified: true,
+            taxid: 562,
+            kmers_matched: 30,
+            kmers_total: 35,
+        };
+
+        let mut output = Vec::new();
+        let gen = ReportGenerator::new(ReportFormat::Mpa);
+        gen.write_result(&mut output, &result).unwrap();
+
+        let s = String::from_utf8(output).unwrap();
         assert!(s.contains("seq1"));
         assert!(s.contains("562"));
     }
 
     #[test]
+    fn test_report_generator_minimizer_data() {
+        let result = ClassificationResult {
+            sequence_id: "seq1".to_string(),
+            classified: true,
+            taxid: 562,
+            kmers_matched: 30,
+            kmers_total: 35,
+        };
+
+        let mut output = Vec::new();
+        let gen = ReportGenerator::new(ReportFormat::KrakenWithMinimizerData);
+        gen.write_result(&mut output, &result).unwrap();
+
+        let s = String::from_utf8(output).unwrap();
+        // Should produce same output as Kraken format for now
+        assert!(s.starts_with("C\t"));
+    }
+
+    #[test]
     fn test_taxonomy_report() {
         let mut report = TaxonomyReport::new();
-        report.add_result(562, true); // E. coli
+        report.add_result(562, true);
         report.add_result(562, true);
         report.add_result(562, false);
 
         assert_eq!(report.total_sequences, 3);
         assert_eq!(report.unclassified_sequences, 1);
         assert_eq!(report.get_count(562), 2);
+    }
+
+    #[test]
+    fn test_taxonomy_report_default() {
+        let report = TaxonomyReport::default();
+        assert_eq!(report.total_sequences, 0);
+        assert_eq!(report.unclassified_sequences, 0);
+        assert!(report.counts.is_empty());
+    }
+
+    #[test]
+    fn test_taxonomy_report_multiple_taxa() {
+        let mut report = TaxonomyReport::new();
+        report.add_result(562, true);   // E. coli
+        report.add_result(562, true);
+        report.add_result(1280, true);  // S. aureus
+        report.add_result(1280, true);
+        report.add_result(1280, true);
+        report.add_result(0, false);    // Unclassified
+
+        assert_eq!(report.total_sequences, 6);
+        assert_eq!(report.unclassified_sequences, 1);
+        assert_eq!(report.get_count(562), 2);
+        assert_eq!(report.get_count(1280), 3);
+        assert_eq!(report.get_count(999), 0);
+    }
+
+    #[test]
+    fn test_taxonomy_report_percentage() {
+        let mut report = TaxonomyReport::new();
+        for _ in 0..50 {
+            report.add_result(562, true);
+        }
+        for _ in 0..50 {
+            report.add_result(1280, true);
+        }
+
+        assert_eq!(report.total_sequences, 100);
+        assert!((report.get_percentage(562) - 50.0).abs() < 0.01);
+        assert!((report.get_percentage(1280) - 50.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_taxonomy_report_percentage_empty() {
+        let report = TaxonomyReport::new();
+        assert_eq!(report.get_percentage(562), 0.0);
+    }
+
+    #[test]
+    fn test_taxonomy_report_clone() {
+        let mut report = TaxonomyReport::new();
+        report.add_result(562, true);
+        report.add_result(562, true);
+
+        let cloned = report.clone();
+        assert_eq!(cloned.total_sequences, 2);
+        assert_eq!(cloned.get_count(562), 2);
+    }
+
+    #[test]
+    fn test_taxonomy_report_debug() {
+        let mut report = TaxonomyReport::new();
+        report.add_result(562, true);
+        let debug = format!("{:?}", report);
+        assert!(debug.contains("TaxonomyReport"));
+        assert!(debug.contains("562"));
     }
 }

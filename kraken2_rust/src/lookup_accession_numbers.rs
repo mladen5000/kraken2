@@ -197,10 +197,73 @@ mod tests {
     }
 
     #[test]
+    fn test_find_byte_at_start() {
+        let data = b"\nhello";
+        assert_eq!(find_byte(data, 0, b'\n'), Some(0));
+    }
+
+    #[test]
+    fn test_find_byte_at_end() {
+        let data = b"hello\n";
+        assert_eq!(find_byte(data, 0, b'\n'), Some(5));
+    }
+
+    #[test]
+    fn test_find_byte_empty() {
+        let data = b"";
+        assert_eq!(find_byte(data, 0, b'\n'), None);
+    }
+
+    #[test]
+    fn test_find_byte_start_past_end() {
+        let data = b"hello";
+        assert_eq!(find_byte(data, 10, b'h'), None);
+    }
+
+    #[test]
     fn test_find_byte_range() {
         let data = b"a\tb\tc\td";
-        assert_eq!(find_byte_range(data, 0, 5, b'\t'), Some(1)); // First tab
-        assert_eq!(find_byte_range(data, 2, 5, b'\t'), Some(3)); // Second tab in range
-        assert_eq!(find_byte_range(data, 0, 1, b'\t'), None); // Not in range
+        assert_eq!(find_byte_range(data, 0, 5, b'\t'), Some(1));
+        assert_eq!(find_byte_range(data, 2, 5, b'\t'), Some(3));
+        assert_eq!(find_byte_range(data, 0, 1, b'\t'), None);
+    }
+
+    #[test]
+    fn test_find_byte_range_at_boundary() {
+        let data = b"a\tb";
+        assert_eq!(find_byte_range(data, 0, 2, b'\t'), Some(1));
+        assert_eq!(find_byte_range(data, 0, 1, b'\t'), None); // Tab at position 1 is excluded
+    }
+
+    #[test]
+    fn test_find_byte_range_empty() {
+        let data = b"hello";
+        assert_eq!(find_byte_range(data, 3, 3, b'l'), None); // Empty range
+    }
+
+    #[test]
+    fn test_find_byte_range_reversed() {
+        let data = b"hello";
+        assert_eq!(find_byte_range(data, 4, 2, b'l'), None); // start > end
+    }
+
+    #[test]
+    fn test_find_byte_multiple_occurrences() {
+        let data = b"a\tb\tc";
+        // Should find first occurrence in range
+        assert_eq!(find_byte_range(data, 0, 5, b'\t'), Some(1));
+    }
+
+    #[test]
+    fn test_find_byte_range_not_found() {
+        let data = b"hello world";
+        assert_eq!(find_byte_range(data, 0, 5, b'\t'), None);
+    }
+
+    #[test]
+    fn test_find_byte_with_offset() {
+        let data = b"line1\nline2\nline3";
+        assert_eq!(find_byte(data, 0, b'\n'), Some(5));
+        assert_eq!(find_byte(data, 6, b'\n'), Some(11));
     }
 }

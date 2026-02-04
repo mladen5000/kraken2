@@ -179,31 +179,203 @@ impl Default for Taxonomy {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_taxonomy_creation() {
+    fn create_test_taxonomy() -> Taxonomy {
         let mut tax = Taxonomy::new();
+        // Build a simple taxonomy tree:
+        // 1 (root) -> 2 (Bacteria) -> 3 (Firmicutes) -> 4 (Bacilli)
+        //          -> 5 (Archaea) -> 6 (Euryarchaeota)
         tax.add_node(1, 1, "root", "Root");
         tax.add_node(2, 1, "superkingdom", "Bacteria");
         tax.add_node(3, 2, "phylum", "Firmicutes");
+        tax.add_node(4, 3, "class", "Bacilli");
+        tax.add_node(5, 1, "superkingdom", "Archaea");
+        tax.add_node(6, 5, "phylum", "Euryarchaeota");
+        tax
+    }
 
-        assert_eq!(tax.size(), 3);
+    #[test]
+    fn test_taxonomy_creation() {
+        let tax = create_test_taxonomy();
+        assert_eq!(tax.size(), 6);
         assert_eq!(tax.get_name(2), Some("Bacteria"));
     }
 
     #[test]
+    fn test_taxonomy_default() {
+        let tax = Taxonomy::default();
+        assert_eq!(tax.size(), 0);
+        assert_eq!(tax.root(), 1);
+    }
+
+    #[test]
+    fn test_get_node() {
+        let tax = create_test_taxonomy();
+
+        let node = tax.get_node(3).unwrap();
+        assert_eq!(node.taxid, 3);
+        assert_eq!(node.parent, 2);
+        assert_eq!(node.rank, "phylum");
+        assert_eq!(node.name, "Firmicutes");
+    }
+
+    #[test]
+    fn test_get_node_not_found() {
+        let tax = create_test_taxonomy();
+        assert!(tax.get_node(999).is_none());
+    }
+
+    #[test]
+    fn test_get_parent() {
+        let tax = create_test_taxonomy();
+
+        assert_eq!(tax.get_parent(4), 3);
+        assert_eq!(tax.get_parent(3), 2);
+        assert_eq!(tax.get_parent(2), 1);
+        assert_eq!(tax.get_parent(1), 1); // Root's parent is itself
+    }
+
+    #[test]
+    fn test_get_parent_not_found() {
+        let tax = create_test_taxonomy();
+        assert_eq!(tax.get_parent(999), 0);
+    }
+
+    #[test]
+    fn test_get_parent_opt() {
+        let tax = create_test_taxonomy();
+
+        assert_eq!(tax.get_parent_opt(4), Some(3));
+        assert_eq!(tax.get_parent_opt(999), None);
+    }
+
+    #[test]
     fn test_lca_same_taxon() {
-        let tax = Taxonomy::new();
-        let result = tax.lca(1, 1);
-        assert_eq!(result, 1);
+        let tax = create_test_taxonomy();
+        assert_eq!(tax.lca(3, 3), 3);
     }
 
     #[test]
     fn test_lca_parent_child() {
-        let mut tax = Taxonomy::new();
-        tax.add_node(1, 1, "root", "Root");
-        tax.add_node(2, 1, "superkingdom", "Bacteria");
+        let tax = create_test_taxonomy();
 
-        let result = tax.lca(1, 2);
-        assert_eq!(result, 1);
+        // LCA of parent and child is parent
+        assert_eq!(tax.lca(2, 3), 2);
+        assert_eq!(tax.lca(3, 2), 2);
+    }
+
+    #[test]
+    fn test_lca_siblings() {
+        let tax = create_test_taxonomy();
+
+        // LCA of siblings is their common parent
+        assert_eq!(tax.lca(2, 5), 1); // Bacteria and Archaea -> Root
+    }
+
+    #[test]
+    fn test_lca_distant_relatives() {
+        let tax = create_test_taxonomy();
+
+        // LCA of Bacilli (4) and Euryarchaeota (6) is Root (1)
+        assert_eq!(tax.lca(4, 6), 1);
+    }
+
+    #[test]
+    fn test_lca_many_empty() {
+        let tax = create_test_taxonomy();
+        assert_eq!(tax.lca_many(&[]), 1); // Returns root for empty list
+    }
+
+    #[test]
+    fn test_lca_many_single() {
+        let tax = create_test_taxonomy();
+        assert_eq!(tax.lca_many(&[4]), 4);
+    }
+
+    #[test]
+    fn test_lca_many_multiple() {
+        let tax = create_test_taxonomy();
+
+        // LCA of multiple taxa in same lineage
+        assert_eq!(tax.lca_many(&[2, 3, 4]), 2);
+
+        // LCA of taxa from different branches
+        assert_eq!(tax.lca_many(&[4, 6]), 1);
+    }
+
+    #[test]
+    fn test_get_rank() {
+        let tax = create_test_taxonomy();
+
+        assert_eq!(tax.get_rank(1), Some("root"));
+        assert_eq!(tax.get_rank(2), Some("superkingdom"));
+        assert_eq!(tax.get_rank(3), Some("phylum"));
+        assert_eq!(tax.get_rank(999), None);
+    }
+
+    #[test]
+    fn test_get_name_not_found() {
+        let tax = create_test_taxonomy();
+        assert_eq!(tax.get_name(999), None);
+    }
+
+    #[test]
+    fn test_is_ancestor_same() {
+        let tax = create_test_taxonomy();
+        assert!(tax.is_a_ancestor_of_b(3, 3)); // A is ancestor of itself
+    }
+
+    #[test]
+    fn test_is_ancestor_direct_parent() {
+        let tax = create_test_taxonomy();
+        assert!(tax.is_a_ancestor_of_b(2, 3)); // Bacteria is ancestor of Firmicutes
+        assert!(!tax.is_a_ancestor_of_b(3, 2)); // Firmicutes is NOT ancestor of Bacteria
+    }
+
+    #[test]
+    fn test_is_ancestor_distant() {
+        let tax = create_test_taxonomy();
+        assert!(tax.is_a_ancestor_of_b(1, 4)); // Root is ancestor of Bacilli
+        assert!(tax.is_a_ancestor_of_b(2, 4)); // Bacteria is ancestor of Bacilli
+        assert!(!tax.is_a_ancestor_of_b(4, 2)); // Bacilli is NOT ancestor of Bacteria
+    }
+
+    #[test]
+    fn test_is_ancestor_different_branches() {
+        let tax = create_test_taxonomy();
+        assert!(!tax.is_a_ancestor_of_b(2, 6)); // Bacteria is NOT ancestor of Euryarchaeota
+        assert!(!tax.is_a_ancestor_of_b(5, 4)); // Archaea is NOT ancestor of Bacilli
+    }
+
+    #[test]
+    fn test_get_external_id() {
+        let tax = create_test_taxonomy();
+        // Currently returns same as internal ID
+        assert_eq!(tax.get_external_id(4), 4);
+    }
+
+    #[test]
+    fn test_taxonomy_node_clone() {
+        let node = TaxonomyNode {
+            taxid: 42,
+            parent: 1,
+            rank: "species".to_string(),
+            name: "E. coli".to_string(),
+        };
+        let cloned = node.clone();
+        assert_eq!(node.taxid, cloned.taxid);
+        assert_eq!(node.name, cloned.name);
+    }
+
+    #[test]
+    fn test_taxonomy_node_debug() {
+        let node = TaxonomyNode {
+            taxid: 42,
+            parent: 1,
+            rank: "species".to_string(),
+            name: "E. coli".to_string(),
+        };
+        let debug = format!("{:?}", node);
+        assert!(debug.contains("42"));
+        assert!(debug.contains("E. coli"));
     }
 }

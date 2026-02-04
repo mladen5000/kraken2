@@ -255,6 +255,7 @@ mod tests {
         let header = "NC_000001.11 Homo sapiens chromosome 1";
         let ids = extract_ncbi_sequence_ids(header);
         assert!(!ids.is_empty());
+        assert_eq!(ids[0], "NC_000001.11");
     }
 
     #[test]
@@ -262,6 +263,28 @@ mod tests {
         let header = "gi|123456|ref|NC_000001.11|";
         let ids = extract_ncbi_sequence_ids(header);
         assert!(!ids.is_empty());
+    }
+
+    #[test]
+    fn test_extract_ncbi_sequence_ids_with_gt() {
+        let header = ">NC_000001.11 description";
+        let ids = extract_ncbi_sequence_ids(header);
+        assert!(!ids.is_empty());
+        assert_eq!(ids[0], "NC_000001.11");
+    }
+
+    #[test]
+    fn test_extract_ncbi_sequence_ids_empty() {
+        let header = "";
+        let ids = extract_ncbi_sequence_ids(header);
+        assert!(ids.is_empty());
+    }
+
+    #[test]
+    fn test_extract_ncbi_sequence_ids_whitespace_only() {
+        let header = "   ";
+        let ids = extract_ncbi_sequence_ids(header);
+        assert!(ids.is_empty());
     }
 
     #[test]
@@ -274,10 +297,38 @@ mod tests {
     }
 
     #[test]
+    fn test_set_minimizer_lca_overwrite() {
+        let mut table: HashMap<u64, TaxId> = HashMap::new();
+        let tax = Taxonomy::new();
+
+        set_minimizer_lca(&mut table, 12345, 562, &tax);
+        set_minimizer_lca(&mut table, 12345, 1280, &tax);
+        assert_eq!(table.get(&12345), Some(&1280));
+    }
+
+    #[test]
     fn test_hash_function() {
         let h1 = hash(0);
         let h2 = hash(1);
         assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_hash_function_deterministic() {
+        let h1 = hash(42);
+        let h2 = hash(42);
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_hash_function_distribution() {
+        // Basic test that hashes are reasonably distributed
+        let mut hashes = std::collections::HashSet::new();
+        for i in 0..1000 {
+            hashes.insert(hash(i));
+        }
+        // Should have high uniqueness
+        assert!(hashes.len() > 950);
     }
 
     #[test]
@@ -286,5 +337,71 @@ mod tests {
         assert_eq!(opts.k, 35);
         assert_eq!(opts.l, 31);
         assert!(!opts.input_is_protein);
+        assert_eq!(opts.num_threads, 1);
+        assert!(opts.deterministic_build);
+        assert_eq!(opts.block_size, DEFAULT_BLOCK_SIZE);
+        assert_eq!(opts.subblock_size, DEFAULT_SUBBLOCK_SIZE);
+    }
+
+    #[test]
+    fn test_build_options_protein() {
+        let opts = BuildDbOptions {
+            input_is_protein: true,
+            k: 15,
+            l: 12,
+            ..Default::default()
+        };
+        assert!(opts.input_is_protein);
+        assert_eq!(opts.k, 15);
+        assert_eq!(opts.l, 12);
+    }
+
+    #[test]
+    fn test_taxon_seq_pair_clone() {
+        let pair = TaxonSeqPair {
+            taxon: 562,
+            seq: "ATCGATCG".to_string(),
+        };
+        let cloned = pair.clone();
+        assert_eq!(cloned.taxon, 562);
+        assert_eq!(cloned.seq, "ATCGATCG");
+    }
+
+    #[test]
+    fn test_taxon_seq_pair_debug() {
+        let pair = TaxonSeqPair {
+            taxon: 562,
+            seq: "ATCG".to_string(),
+        };
+        let debug = format!("{:?}", pair);
+        assert!(debug.contains("TaxonSeqPair"));
+        assert!(debug.contains("562"));
+    }
+
+    #[test]
+    fn test_default_constants() {
+        assert_eq!(DEFAULT_BLOCK_SIZE, 10 * 1024 * 1024);
+        assert_eq!(DEFAULT_SUBBLOCK_SIZE, 1024);
+        assert_eq!(DEFAULT_TOGGLE_MASK, 0);
+    }
+
+    #[test]
+    fn test_build_options_custom_threads() {
+        let opts = BuildDbOptions {
+            num_threads: 16,
+            ..Default::default()
+        };
+        assert_eq!(opts.num_threads, 16);
+    }
+
+    #[test]
+    fn test_build_options_capacity() {
+        let opts = BuildDbOptions {
+            capacity: 1_000_000,
+            maximum_capacity: 10_000_000,
+            ..Default::default()
+        };
+        assert_eq!(opts.capacity, 1_000_000);
+        assert_eq!(opts.maximum_capacity, 10_000_000);
     }
 }

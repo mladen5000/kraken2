@@ -138,16 +138,54 @@ mod tests {
     #[test]
     fn test_compact_hash_cell() {
         let cell = CompactHashCell::new(0x12345678, 42);
+        // hash_key is upper 16 bits of the input hash's upper 16 bits
+        // 0x12345678 >> 16 = 0x1234
+        assert_eq!(cell.hash_key(), 0x1234);
         assert_eq!(cell.taxon_id(), 42);
+    }
+
+    #[test]
+    fn test_compact_hash_cell_empty() {
+        let cell = CompactHashCell(0);
+        assert!(cell.is_empty());
+        assert_eq!(cell.taxon_id(), 0);
+        assert_eq!(cell.hash_key(), 0);
+    }
+
+    #[test]
+    fn test_compact_hash_cell_max_values() {
+        // Test with maximum values
+        let cell = CompactHashCell::new(0xFFFFFFFF, 0xFFFF);
+        assert_eq!(cell.hash_key(), 0xFFFF);
+        assert_eq!(cell.taxon_id(), 0xFFFF as TaxId);
     }
 
     #[test]
     fn test_hash_table_insert_lookup() {
         let table = CompactHashTable::new(1024);
-        table.insert(0x123456789ABCDEF0, 100).unwrap();
 
-        let result = table.lookup(0x123456789ABCDEF0);
-        assert_eq!(result, Some(100));
+        // Use a simple hash value that we can trace through
+        // The hash_key used for comparison is (hash >> 16) as u32
+        // For hash = 0x12340000, hash_key = 0x1234
+        let hash: u64 = 0x12340000;
+        table.insert(hash, 100).unwrap();
+
+        let result = table.lookup(hash);
+        assert_eq!(result, Some(100), "Should find inserted value");
+    }
+
+    #[test]
+    fn test_hash_table_insert_lookup_different_hashes() {
+        let table = CompactHashTable::new(1024);
+
+        // Insert multiple values
+        table.insert(0x11110000, 111).unwrap();
+        table.insert(0x22220000, 222).unwrap();
+        table.insert(0x33330000, 333).unwrap();
+
+        assert_eq!(table.lookup(0x11110000), Some(111));
+        assert_eq!(table.lookup(0x22220000), Some(222));
+        assert_eq!(table.lookup(0x33330000), Some(333));
     }
 
     #[test]
@@ -155,5 +193,60 @@ mod tests {
         let table = CompactHashTable::new(1024);
         let result = table.lookup(0x123456789ABCDEF0);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_hash_table_update_existing() {
+        let table = CompactHashTable::new(1024);
+        let hash: u64 = 0xABCD0000;
+
+        table.insert(hash, 100).unwrap();
+        assert_eq!(table.lookup(hash), Some(100));
+
+        // Update the same key
+        table.insert(hash, 200).unwrap();
+        assert_eq!(table.lookup(hash), Some(200));
+    }
+
+    #[test]
+    fn test_hash_table_collision_handling() {
+        let table = CompactHashTable::new(16); // Small table to force collisions
+
+        // Insert values that will collide (same index but different hash keys)
+        // Note: taxon_id = 0 means empty cell, so start from 1
+        for i in 1..10 {
+            let hash = (i as u64) << 20 | (i as u64); // Different hash_key for each
+            table.insert(hash, i as TaxId).unwrap();
+        }
+
+        // Verify all can be retrieved
+        for i in 1..10 {
+            let hash = (i as u64) << 20 | (i as u64);
+            let result = table.lookup(hash);
+            assert_eq!(result, Some(i as TaxId), "Should find value {} at hash {:#x}", i, hash);
+        }
+    }
+
+    #[test]
+    fn test_hash_table_get_method() {
+        let table = CompactHashTable::new(1024);
+
+        // get() returns 0 for not found (matching C++ interface)
+        assert_eq!(table.get(0x12340000), 0);
+
+        table.insert(0x12340000, 42).unwrap();
+        assert_eq!(table.get(0x12340000), 42);
+    }
+
+    #[test]
+    fn test_hash_table_capacity() {
+        let table = CompactHashTable::new(2048);
+        assert_eq!(table.capacity(), 2048);
+    }
+
+    #[test]
+    fn test_hash_table_lock_zones() {
+        let table = CompactHashTable::new(1024);
+        assert_eq!(table.num_lock_zones(), 256);
     }
 }

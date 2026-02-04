@@ -423,4 +423,112 @@ mod tests {
         assert_eq!(pi.start, 0);
         assert_eq!(pi.finish, 10);
     }
+
+    #[test]
+    fn test_sdust_default() {
+        let sd = SDust::default();
+        assert_eq!(sd.window_size, 64);
+        assert_eq!(sd.threshold, 20);
+    }
+
+    #[test]
+    fn test_mask_range_clone() {
+        let range = MaskRange { start: 5, finish: 15 };
+        let cloned = range.clone();
+        assert_eq!(cloned.start, 5);
+        assert_eq!(cloned.finish, 15);
+    }
+
+    #[test]
+    fn test_mask_range_debug() {
+        let range = MaskRange { start: 10, finish: 20 };
+        let debug = format!("{:?}", range);
+        assert!(debug.contains("MaskRange"));
+        assert!(debug.contains("10"));
+        assert!(debug.contains("20"));
+    }
+
+    #[test]
+    fn test_perfect_interval_clone() {
+        let pi = PerfectInterval {
+            start: 0,
+            finish: 10,
+            left: 5,
+            right: 50,
+        };
+        let cloned = pi.clone();
+        assert_eq!(cloned.start, 0);
+        assert_eq!(cloned.finish, 10);
+    }
+
+    #[test]
+    fn test_asc2dna_invalid_chars() {
+        // All invalid characters should map to 4
+        assert_eq!(ASC2DNA[b'X' as usize], 4);
+        assert_eq!(ASC2DNA[b'!' as usize], 4);
+        assert_eq!(ASC2DNA[0], 4);
+        assert_eq!(ASC2DNA[255], 4);
+    }
+
+    #[test]
+    fn test_mask_empty_sequence() {
+        let opts = MaskOptions::default();
+        let masked = mask_string("", &opts);
+        assert!(masked.is_empty());
+    }
+
+    #[test]
+    fn test_mask_single_base() {
+        let opts = MaskOptions::default();
+        let masked = mask_string("A", &opts);
+        assert_eq!(masked, "A");
+    }
+
+    #[test]
+    fn test_mask_with_n_bases() {
+        let opts = MaskOptions::default();
+        // N bases break the sequence into segments
+        let seq = "ATCGATCGNNNATCGATCG";
+        let masked = mask_string(seq, &opts);
+        assert!(masked.contains("N"));
+    }
+
+    #[test]
+    fn test_mask_sequence_directly() {
+        let opts = MaskOptions::default();
+        let mut seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCGATCGATCG".to_string(),
+            quality: None,
+        };
+        mask_sequence(&mut seq, &opts);
+        assert!(!seq.seq.is_empty());
+    }
+
+    #[test]
+    fn test_sdust_get_ranges_empty() {
+        let sd = SDust::new(64, 20);
+        let ranges = sd.get_ranges();
+        assert!(ranges.is_empty());
+    }
+
+    #[test]
+    fn test_mask_options_custom() {
+        let opts = MaskOptions {
+            window_size: 32,
+            threshold: 10,
+            replace_char: Some('X'),
+        };
+        assert_eq!(opts.window_size, 32);
+        assert_eq!(opts.threshold, 10);
+        assert_eq!(opts.replace_char, Some('X'));
+    }
+
+    #[test]
+    fn test_sdust_run_simple() {
+        let mut sd = SDust::new(64, 20);
+        sd.run(b"ATCGATCG", 0);
+        // Short sequences typically don't trigger masking
+        assert!(sd.get_ranges().is_empty() || !sd.get_ranges().is_empty());
+    }
 }

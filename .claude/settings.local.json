@@ -8,7 +8,11 @@
       "Bash(/Users/mladenrasic/.cargo/bin/cargo build:*)",
       "Bash(/Users/mladenrasic/.cargo/bin/cargo test:*)",
       "Bash(cargo check:*)",
-      "Bash(cargo run:*)"
+      "Bash(cargo run:*)",
+      "Bash(SHELL=/bin/bash /bin/bash -c:*)",
+      "WebFetch(domain:arxiv.org)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(PATH=\"/Users/mladenrasic/.cargo/bin:/usr/local/bin:/usr/bin:/bin\" /Users/mladenrasic/.cargo/bin/cargo test:*)"
     ]
   }
 }

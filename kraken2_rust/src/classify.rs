@@ -774,4 +774,179 @@ mod tests {
         assert_eq!(READING_FRAME_BORDER_TAXON, TAXID_MAX - 1);
         assert_eq!(AMBIGUOUS_SPAN_TAXON, TAXID_MAX - 2);
     }
+
+    #[test]
+    fn test_classification_stats_clone() {
+        let mut stats = ClassificationStats::default();
+        stats.total_sequences = 100;
+        stats.total_classified = 75;
+        stats.total_bases = 5000;
+
+        let cloned = stats.clone();
+        assert_eq!(cloned.total_sequences, 100);
+        assert_eq!(cloned.total_classified, 75);
+        assert_eq!(cloned.total_bases, 5000);
+    }
+
+    #[test]
+    fn test_classification_stats_debug() {
+        let stats = ClassificationStats::default();
+        let debug = format!("{:?}", stats);
+        assert!(debug.contains("ClassificationStats"));
+    }
+
+    #[test]
+    fn test_detailed_classification_clone() {
+        let result = DetailedClassification {
+            sequence_id: "seq1".to_string(),
+            classified: true,
+            taxid: 562,
+            external_taxid: 562,
+            kmers_matched: 30,
+            kmers_total: 35,
+            hit_groups: 5,
+            hitlist: vec![562, 561],
+            hitlist_string: "562:1 561:1".to_string(),
+        };
+
+        let cloned = result.clone();
+        assert_eq!(cloned.sequence_id, "seq1");
+        assert_eq!(cloned.taxid, 562);
+        assert_eq!(cloned.hitlist.len(), 2);
+    }
+
+    #[test]
+    fn test_detailed_classification_debug() {
+        let result = DetailedClassification::default();
+        let debug = format!("{:?}", result);
+        assert!(debug.contains("DetailedClassification"));
+    }
+
+    #[test]
+    fn test_mask_low_quality_bases_no_quality() {
+        let mut seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCG".to_string(),
+            quality: None,
+        };
+        mask_low_quality_bases(&mut seq, 10);
+        // Should remain unchanged when no quality string
+        assert_eq!(seq.seq, "ATCG");
+    }
+
+    #[test]
+    fn test_mask_low_quality_bases_length_mismatch() {
+        let mut seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCGATCG".to_string(),
+            quality: Some("IIII".to_string()), // Wrong length
+        };
+        mask_low_quality_bases(&mut seq, 10);
+        // Should remain unchanged with mismatched lengths
+        assert_eq!(seq.seq, "ATCGATCG");
+    }
+
+    #[test]
+    fn test_mask_low_quality_bases_all_high_quality() {
+        let mut seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCG".to_string(),
+            quality: Some("IIII".to_string()), // Quality 40 for all
+        };
+        mask_low_quality_bases(&mut seq, 10);
+        // All high quality, should remain unchanged
+        assert_eq!(seq.seq, "ATCG");
+    }
+
+    #[test]
+    fn test_mask_low_quality_bases_all_low_quality() {
+        let mut seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCG".to_string(),
+            quality: Some("!!!!".to_string()), // Quality 0 for all
+        };
+        mask_low_quality_bases(&mut seq, 10);
+        // All low quality, should all be masked
+        assert_eq!(seq.seq, "xxxx");
+    }
+
+    #[test]
+    fn test_trim_pair_info_variations() {
+        assert_eq!(trim_pair_info("read1/1"), "read1");
+        assert_eq!(trim_pair_info("read1/2"), "read1");
+        assert_eq!(trim_pair_info("read1/3"), "read1/3"); // Not /1 or /2
+        assert_eq!(trim_pair_info("ab"), "ab"); // Too short to have /1
+        assert_eq!(trim_pair_info("/1"), "/1"); // Edge case
+    }
+
+    #[test]
+    fn test_add_hitlist_string_empty() {
+        let taxa: Vec<TaxId> = vec![];
+        let taxonomy = Taxonomy::new();
+        let result = add_hitlist_string(&taxa, &taxonomy);
+        assert_eq!(result, "0:0");
+    }
+
+    #[test]
+    fn test_add_hitlist_string_single_taxon() {
+        let taxa = vec![562];
+        let taxonomy = Taxonomy::new();
+        let result = add_hitlist_string(&taxa, &taxonomy);
+        assert_eq!(result, "562:1");
+    }
+
+    #[test]
+    fn test_add_hitlist_string_mate_pair_border() {
+        let taxa = vec![562, MATE_PAIR_BORDER_TAXON, 561];
+        let taxonomy = Taxonomy::new();
+        let result = add_hitlist_string(&taxa, &taxonomy);
+        assert!(result.contains("|:|"));
+    }
+
+    #[test]
+    fn test_add_hitlist_string_reading_frame_border() {
+        let taxa = vec![562, READING_FRAME_BORDER_TAXON, 561];
+        let taxonomy = Taxonomy::new();
+        let result = add_hitlist_string(&taxa, &taxonomy);
+        assert!(result.contains("-:-"));
+    }
+
+    #[test]
+    fn test_murmur_hash3_known_values() {
+        // Test with 0
+        let h0 = murmur_hash3(0);
+        assert_ne!(h0, 0); // Should mix even 0
+
+        // Test with max value
+        let hmax = murmur_hash3(u64::MAX);
+        assert_ne!(hmax, u64::MAX);
+    }
+
+    #[test]
+    fn test_resolve_tree_zero_minimizers() {
+        let mut hit_counts = TaxonCounts::new();
+        hit_counts.insert(562, 10);
+
+        let taxonomy = Taxonomy::new();
+        let result = resolve_tree(&hit_counts, &taxonomy, 0, 0.5);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_classify_options_custom() {
+        let opts = ClassifyOptions {
+            num_threads: 8,
+            quick_mode: true,
+            paired_end_processing: true,
+            confidence_threshold: 0.5,
+            minimum_hit_groups: 3,
+            ..Default::default()
+        };
+
+        assert_eq!(opts.num_threads, 8);
+        assert!(opts.quick_mode);
+        assert!(opts.paired_end_processing);
+        assert_eq!(opts.confidence_threshold, 0.5);
+        assert_eq!(opts.minimum_hit_groups, 3);
+    }
 }

@@ -57,6 +57,37 @@ mod tests {
     }
 
     #[test]
+    fn test_expand_spaced_seed_mask_factor_1() {
+        // Factor of 1 should not change the mask
+        let mut mask = 0b10101010u64;
+        expand_spaced_seed_mask(&mut mask, 1);
+        assert_eq!(mask, 0b10101010u64);
+    }
+
+    #[test]
+    fn test_expand_spaced_seed_mask_all_ones() {
+        let mut mask = 0b1111u64;
+        expand_spaced_seed_mask(&mut mask, 2);
+        // Each 1 becomes 11
+        assert_eq!(mask, 0b11111111u64);
+    }
+
+    #[test]
+    fn test_expand_spaced_seed_mask_all_zeros() {
+        let mut mask = 0u64;
+        expand_spaced_seed_mask(&mut mask, 2);
+        assert_eq!(mask, 0u64);
+    }
+
+    #[test]
+    fn test_expand_spaced_seed_mask_factor_4() {
+        let mut mask = 0b11u64;
+        expand_spaced_seed_mask(&mut mask, 4);
+        // Each 1 becomes 1111
+        assert_eq!(mask, 0b11111111u64);
+    }
+
+    #[test]
     fn test_split_string_simple() {
         let result = split_string("a\tb\tc", "\t", None);
         assert_eq!(result, vec!["a", "b", "c"]);
@@ -66,5 +97,72 @@ mod tests {
     fn test_split_string_with_max_fields() {
         let result = split_string("a\tb\tc\td", "\t", Some(2));
         assert_eq!(result, vec!["a", "b\tc\td"]);
+    }
+
+    #[test]
+    fn test_split_string_empty() {
+        let result = split_string("", "\t", None);
+        // Empty string returns empty vector (no fields)
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_split_string_no_delimiter() {
+        let result = split_string("hello world", "\t", None);
+        assert_eq!(result, vec!["hello world"]);
+    }
+
+    #[test]
+    fn test_split_string_comma_delimiter() {
+        let result = split_string("a,b,c,d", ",", None);
+        assert_eq!(result, vec!["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn test_split_string_multi_char_delimiter() {
+        let result = split_string("a::b::c", "::", None);
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_split_string_consecutive_delimiters() {
+        let result = split_string("a\t\tb\t\tc", "\t", None);
+        assert_eq!(result, vec!["a", "", "b", "", "c"]);
+    }
+
+    #[test]
+    fn test_split_string_max_fields_1() {
+        let result = split_string("a\tb\tc", "\t", Some(1));
+        assert_eq!(result, vec!["a\tb\tc"]);
+    }
+
+    #[test]
+    fn test_split_string_max_fields_3() {
+        let result = split_string("a\tb\tc\td\te", "\t", Some(3));
+        assert_eq!(result, vec!["a", "b", "c\td\te"]);
+    }
+
+    #[test]
+    fn test_split_string_trailing_delimiter() {
+        let result = split_string("a\tb\t", "\t", None);
+        // Trailing delimiter produces an empty string at the end
+        // Current impl: returns ["a", "b"] (no trailing empty)
+        assert_eq!(result, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn test_split_string_leading_delimiter() {
+        let result = split_string("\ta\tb", "\t", None);
+        assert_eq!(result, vec!["", "a", "b"]);
+    }
+
+    #[test]
+    fn test_split_string_real_tsv_line() {
+        let line = "NC_001416.1\t100\t1\tEscherichia phage lambda";
+        let result = split_string(line, "\t", None);
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0], "NC_001416.1");
+        assert_eq!(result[1], "100");
+        assert_eq!(result[3], "Escherichia phage lambda");
     }
 }

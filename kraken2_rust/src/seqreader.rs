@@ -131,4 +131,76 @@ mod tests {
         assert_eq!(seq.header, "seq1");
         assert_eq!(seq.seq, "ATCG");
     }
+
+    #[test]
+    fn test_sequence_with_quality() {
+        let seq = Sequence {
+            header: "seq1".to_string(),
+            seq: "ATCG".to_string(),
+            quality: Some("!!!!".to_string()),
+        };
+        assert_eq!(seq.quality, Some("!!!!".to_string()));
+    }
+
+    #[test]
+    fn test_sequence_clone() {
+        let seq1 = Sequence {
+            header: "seq1".to_string(),
+            seq: "ATCGATCG".to_string(),
+            quality: None,
+        };
+        let seq2 = seq1.clone();
+        assert_eq!(seq1.header, seq2.header);
+        assert_eq!(seq1.seq, seq2.seq);
+    }
+
+    #[test]
+    fn test_sequence_debug() {
+        let seq = Sequence {
+            header: "test".to_string(),
+            seq: "ACGT".to_string(),
+            quality: None,
+        };
+        let debug_str = format!("{:?}", seq);
+        assert!(debug_str.contains("test"));
+        assert!(debug_str.contains("ACGT"));
+    }
+
+    #[test]
+    fn test_sequence_format_enum() {
+        let fasta = SequenceFormat::Fasta;
+        let fastq = SequenceFormat::Fastq;
+
+        // Test debug
+        let fasta_debug = format!("{:?}", fasta);
+        let fastq_debug = format!("{:?}", fastq);
+        assert!(fasta_debug.contains("Fasta"));
+        assert!(fastq_debug.contains("Fastq"));
+
+        // Test clone
+        let fasta_clone = fasta;
+        assert!(matches!(fasta_clone, SequenceFormat::Fasta));
+    }
+
+    #[test]
+    fn test_sequence_empty() {
+        let seq = Sequence {
+            header: String::new(),
+            seq: String::new(),
+            quality: None,
+        };
+        assert!(seq.header.is_empty());
+        assert!(seq.seq.is_empty());
+    }
+
+    #[test]
+    fn test_sequence_long_header() {
+        let long_header = "gi|12345|ref|NC_000001.1| Homo sapiens chromosome 1, complete sequence".to_string();
+        let seq = Sequence {
+            header: long_header.clone(),
+            seq: "ATCG".to_string(),
+            quality: None,
+        };
+        assert_eq!(seq.header, long_header);
+    }
 }
