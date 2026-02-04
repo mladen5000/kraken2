@@ -7,7 +7,8 @@
       "Bash(/usr/bin/cargo build:*)",
       "Bash(/Users/mladenrasic/.cargo/bin/cargo build:*)",
       "Bash(/Users/mladenrasic/.cargo/bin/cargo test:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(cargo run:*)"
     ]
   }
 }
