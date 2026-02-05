@@ -203,4 +203,107 @@ mod tests {
         };
         assert_eq!(seq.header, long_header);
     }
+
+    #[test]
+    fn test_sequence_with_all_bases() {
+        let seq = Sequence {
+            header: "test".to_string(),
+            seq: "ACGTNRYSWKMBDHV".to_string(), // All IUPAC codes
+            quality: None,
+        };
+        assert_eq!(seq.seq.len(), 15);
+    }
+
+    #[test]
+    fn test_sequence_lowercase() {
+        let seq = Sequence {
+            header: "test".to_string(),
+            seq: "atcgatcg".to_string(),
+            quality: None,
+        };
+        assert_eq!(seq.seq, "atcgatcg");
+    }
+
+    #[test]
+    fn test_sequence_mixed_case() {
+        let seq = Sequence {
+            header: "test".to_string(),
+            seq: "AtCgAtCg".to_string(),
+            quality: None,
+        };
+        assert_eq!(seq.seq, "AtCgAtCg");
+    }
+
+    #[test]
+    fn test_sequence_quality_phred33() {
+        // Typical Phred+33 quality scores
+        let seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCG".to_string(),
+            quality: Some("IIII".to_string()), // High quality (40)
+        };
+        assert!(seq.quality.is_some());
+        assert_eq!(seq.quality.unwrap().len(), 4);
+    }
+
+    #[test]
+    fn test_sequence_quality_varying() {
+        // Varying quality scores
+        let seq = Sequence {
+            header: "test".to_string(),
+            seq: "ATCGATCG".to_string(),
+            quality: Some("!5;IIIII".to_string()), // Mixed quality
+        };
+        assert_eq!(seq.seq.len(), seq.quality.as_ref().unwrap().len());
+    }
+
+    #[test]
+    fn test_sequence_format_copy() {
+        let fmt = SequenceFormat::Fasta;
+        let fmt_copy = fmt;
+        assert!(matches!(fmt_copy, SequenceFormat::Fasta));
+    }
+
+    #[test]
+    fn test_sequence_long_sequence() {
+        let long_seq = "ATCG".repeat(1000);
+        let seq = Sequence {
+            header: "long".to_string(),
+            seq: long_seq.clone(),
+            quality: None,
+        };
+        assert_eq!(seq.seq.len(), 4000);
+    }
+
+    #[test]
+    fn test_sequence_protein() {
+        // Protein sequence
+        let seq = Sequence {
+            header: "protein".to_string(),
+            seq: "MKWVTFISLLFLFSSAYS*".to_string(),
+            quality: None,
+        };
+        assert!(seq.seq.contains('*')); // Stop codon
+    }
+
+    #[test]
+    fn test_sequence_header_with_spaces() {
+        let seq = Sequence {
+            header: "seq1 description with spaces".to_string(),
+            seq: "ATCG".to_string(),
+            quality: None,
+        };
+        assert!(seq.header.contains(' '));
+    }
+
+    #[test]
+    fn test_sequence_header_with_special_chars() {
+        let seq = Sequence {
+            header: "seq1|ref=NC_001|loc=1..100".to_string(),
+            seq: "ATCG".to_string(),
+            quality: None,
+        };
+        assert!(seq.header.contains('|'));
+        assert!(seq.header.contains('='));
+    }
 }

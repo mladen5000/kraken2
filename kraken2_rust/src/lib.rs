@@ -21,3 +21,5 @@ pub mod classify;
 pub mod k2mask;
 pub mod hyperloglogplus;
 pub mod api;
+pub mod probminhash;
+pub mod minimizer_digest;

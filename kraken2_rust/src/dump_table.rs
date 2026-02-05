@@ -126,4 +126,86 @@ mod tests {
         let result = mask_to_string(mask, 4);
         assert_eq!(result, "1111");
     }
+
+    #[test]
+    fn test_mask_to_string_single_bit() {
+        let mask = 0b1u64;
+        let result = mask_to_string(mask, 8);
+        assert_eq!(result, "00000001");
+    }
+
+    #[test]
+    fn test_mask_to_string_high_bit() {
+        let mask = 0b10000000u64;
+        let result = mask_to_string(mask, 8);
+        assert_eq!(result, "10000000");
+    }
+
+    #[test]
+    fn test_mask_to_string_alternating() {
+        let mask = 0b10101010u64;
+        let result = mask_to_string(mask, 8);
+        assert_eq!(result, "10101010");
+    }
+
+    #[test]
+    fn test_mask_to_string_empty() {
+        let mask = 0u64;
+        let result = mask_to_string(mask, 0);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_dump_table_options_default() {
+        let opts = DumpTableOptions::default();
+        assert!(opts.hashtable_filename.is_empty());
+        assert!(opts.taxonomy_filename.is_empty());
+        assert!(!opts.use_mpa_style);
+        assert!(!opts.report_zeros);
+        assert!(!opts.skip_counts);
+        assert!(!opts.memory_mapping);
+        assert_eq!(opts.num_threads, 1);
+        assert_eq!(opts.output_filename, "/dev/fd/1");
+    }
+
+    #[test]
+    fn test_dump_table_options_custom() {
+        let opts = DumpTableOptions {
+            hashtable_filename: "hash.k2d".to_string(),
+            taxonomy_filename: "taxo.k2d".to_string(),
+            options_filename: "opts.k2d".to_string(),
+            output_filename: "output.txt".to_string(),
+            use_mpa_style: true,
+            report_zeros: true,
+            skip_counts: true,
+            memory_mapping: true,
+            num_threads: 8,
+        };
+        assert_eq!(opts.hashtable_filename, "hash.k2d");
+        assert!(opts.use_mpa_style);
+        assert_eq!(opts.num_threads, 8);
+    }
+
+    #[test]
+    fn test_bits_per_char_constants() {
+        assert_eq!(BITS_PER_CHAR_DNA, 2);
+        assert_eq!(BITS_PER_CHAR_PRO, 4);
+    }
+
+    #[test]
+    fn test_mask_to_string_large() {
+        // Test with a 64-bit mask
+        let mask = 0xFFFFFFFFFFFFFFFFu64;
+        let result = mask_to_string(mask, 64);
+        assert_eq!(result.len(), 64);
+        assert!(result.chars().all(|c| c == '1'));
+    }
+
+    #[test]
+    fn test_mask_to_string_partial() {
+        // Test that we only get the requested number of bits
+        let mask = 0xFFFFu64;
+        let result = mask_to_string(mask, 8);
+        assert_eq!(result, "11111111");
+    }
 }

@@ -13,7 +13,8 @@
       "WebFetch(domain:arxiv.org)",
       "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
       "Bash(PATH=\"/Users/mladenrasic/.cargo/bin:/usr/local/bin:/usr/bin:/bin\" /Users/mladenrasic/.cargo/bin/cargo test:*)",
-      "Bash(PATH=\"/Users/mladenrasic/.cargo/bin:/usr/local/bin:/usr/bin:/bin\" cargo test:*)"
+      "Bash(PATH=\"/Users/mladenrasic/.cargo/bin:/usr/local/bin:/usr/bin:/bin\" cargo test:*)",
+      "Bash(SHELL=/bin/bash /Users/mladenrasic/.cargo/bin/cargo test:*)"
     ]
   }
 }

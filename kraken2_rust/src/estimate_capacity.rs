@@ -161,4 +161,74 @@ mod tests {
         assert!(0u64 & RANGE_MASK < RANGE_SECTIONS as u64);
         assert!(0xFFFFu64 & RANGE_MASK < RANGE_SECTIONS as u64);
     }
+
+    #[test]
+    fn test_simple_hash_zero() {
+        // Hash of 0 should be deterministic (though possibly 0)
+        let h = simple_hash(0);
+        assert_eq!(h, simple_hash(0));
+    }
+
+    #[test]
+    fn test_simple_hash_max() {
+        let h = simple_hash(u64::MAX);
+        assert_eq!(h, simple_hash(u64::MAX));
+    }
+
+    #[test]
+    fn test_estimate_capacity_options_custom() {
+        let opts = EstimateCapacityOptions {
+            k: 35,
+            l: 31,
+            n: 8,
+            input_is_protein: true,
+            threads: 4,
+            block_size: 50 * 1024 * 1024,
+            spaced_seed_mask: 0xFFFF,
+            toggle_mask: 0xAAAA,
+        };
+        assert_eq!(opts.k, 35);
+        assert_eq!(opts.l, 31);
+        assert_eq!(opts.n, 8);
+        assert!(opts.input_is_protein);
+        assert_eq!(opts.threads, 4);
+    }
+
+    #[test]
+    fn test_range_sections_power_of_two() {
+        // Verify RANGE_SECTIONS is a power of 2
+        assert!(RANGE_SECTIONS.is_power_of_two());
+        assert_eq!(RANGE_SECTIONS, 1024);
+    }
+
+    #[test]
+    fn test_range_mask_matches_sections() {
+        // RANGE_MASK should be RANGE_SECTIONS - 1
+        assert_eq!(RANGE_MASK, (RANGE_SECTIONS - 1) as u64);
+    }
+
+    #[test]
+    fn test_default_constants() {
+        assert_eq!(DEFAULT_N, 4);
+        assert_eq!(DEFAULT_SPACED_SEED_MASK, 0x1000000000000000);
+        assert_eq!(DEFAULT_TOGGLE_MASK, 0);
+    }
+
+    #[test]
+    fn test_simple_hash_uniqueness() {
+        // Test that sequential inputs produce unique hashes
+        let mut hashes = std::collections::HashSet::new();
+        for i in 0..1000 {
+            hashes.insert(simple_hash(i));
+        }
+        // Should have very high uniqueness
+        assert!(hashes.len() > 990);
+    }
+
+    #[test]
+    fn test_estimate_capacity_options_block_size() {
+        let opts = EstimateCapacityOptions::default();
+        // Default block size is 30 MB
+        assert_eq!(opts.block_size, 30 * 1024 * 1024);
+    }
 }

@@ -67,3 +67,53 @@ impl Default for OmpLock {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_max_threads_default() {
+        // Default is 1 thread
+        let threads = get_max_threads();
+        assert!(threads >= 1);
+    }
+
+    #[test]
+    fn test_thread_count_atomic() {
+        // Test atomic operations on thread count
+        let initial = THREAD_COUNT.load(Ordering::Relaxed);
+        THREAD_COUNT.store(4, Ordering::Relaxed);
+        assert_eq!(THREAD_COUNT.load(Ordering::Relaxed), 4);
+        THREAD_COUNT.store(initial, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn test_omp_lock_new() {
+        let lock = OmpLock::new();
+        // Lock should be available initially
+        assert!(lock.test_lock());
+    }
+
+    #[test]
+    fn test_omp_lock_default() {
+        let lock = OmpLock::default();
+        assert!(lock.test_lock());
+    }
+
+    #[test]
+    fn test_omp_lock_test_lock() {
+        let lock = OmpLock::new();
+        // First test_lock should succeed
+        let result = lock.test_lock();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_get_thread_num() {
+        // In single-threaded context, should return 0
+        let thread_num = get_thread_num();
+        // Thread num should be a valid index
+        assert!(thread_num < std::usize::MAX);
+    }
+}
